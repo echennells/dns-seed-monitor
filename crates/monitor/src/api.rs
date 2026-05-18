@@ -97,7 +97,10 @@ async fn reachable(State(db): State<Arc<Db>>, Query(range): Query<Range>) -> imp
     Ok::<_, (StatusCode, String)>(Json(json!({ "points": rows })))
 }
 
-async fn unique_reachable(State(db): State<Arc<Db>>, Query(range): Query<Range>) -> impl IntoResponse {
+async fn unique_reachable(
+    State(db): State<Arc<Db>>,
+    Query(range): Query<Range>,
+) -> impl IntoResponse {
     let (from, to) = range.resolve(30 * 86400);
     let net = range.net();
     let conn = db.conn.lock().unwrap();
@@ -146,7 +149,10 @@ async fn alerts(State(db): State<Arc<Db>>) -> impl IntoResponse {
     Ok::<_, (StatusCode, String)>(Json(json!({ "alerts": rows })))
 }
 
-async fn fixed_seed_decay(State(db): State<Arc<Db>>, Query(range): Query<Range>) -> impl IntoResponse {
+async fn fixed_seed_decay(
+    State(db): State<Arc<Db>>,
+    Query(range): Query<Range>,
+) -> impl IntoResponse {
     let net = range.net();
     // 24h lookback for "currently reachable" (probes run every 6h, so 24h gives
     // each address ~4 chances to be probed).

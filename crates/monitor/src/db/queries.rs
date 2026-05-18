@@ -11,7 +11,8 @@ pub struct SeedRow {
 }
 
 pub fn list_seeds(conn: &Connection) -> Result<Vec<SeedRow>> {
-    let mut stmt = conn.prepare("SELECT id, hostname, network, operator FROM seeds ORDER BY hostname")?;
+    let mut stmt =
+        conn.prepare("SELECT id, hostname, network, operator FROM seeds ORDER BY hostname")?;
     let rows = stmt
         .query_map([], |r| {
             Ok(SeedRow {
@@ -25,13 +26,6 @@ pub fn list_seeds(conn: &Connection) -> Result<Vec<SeedRow>> {
     Ok(rows)
 }
 
-pub fn seed_id_for(conn: &Connection, hostname: &str) -> Result<Option<i64>> {
-    let v = conn
-        .query_row("SELECT id FROM seeds WHERE hostname = ?1", params![hostname], |r| r.get::<_, i64>(0))
-        .ok();
-    Ok(v)
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct HourlyPoint {
     pub bucket: i64,
@@ -40,7 +34,12 @@ pub struct HourlyPoint {
     pub unreachable: i64,
 }
 
-pub fn hourly_for_seed(conn: &Connection, seed_id: i64, from: i64, to: i64) -> Result<Vec<HourlyPoint>> {
+pub fn hourly_for_seed(
+    conn: &Connection,
+    seed_id: i64,
+    from: i64,
+    to: i64,
+) -> Result<Vec<HourlyPoint>> {
     let mut stmt = conn.prepare(
         "SELECT bucket, seed_id, reachable, unreachable
          FROM probes_hourly
@@ -61,42 +60,18 @@ pub fn hourly_for_seed(conn: &Connection, seed_id: i64, from: i64, to: i64) -> R
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct DailyClassRow {
-    pub day: i64,
-    pub seed_id: i64,
-    pub class: String,
-    pub count: i64,
-}
-
-pub fn daily_class_shares(conn: &Connection, from_day: i64, to_day: i64) -> Result<Vec<DailyClassRow>> {
-    let mut stmt = conn.prepare(
-        "SELECT day, seed_id, class, count(*)
-         FROM daily_classifications
-         WHERE day BETWEEN ?1 AND ?2
-         GROUP BY day, seed_id, class
-         ORDER BY day, seed_id",
-    )?;
-    let rows = stmt
-        .query_map(params![from_day, to_day], |r| {
-            Ok(DailyClassRow {
-                day: r.get(0)?,
-                seed_id: r.get(1)?,
-                class: r.get(2)?,
-                count: r.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
-}
-
-#[derive(Debug, Clone, Serialize)]
 pub struct ReachableByNetworkRow {
     pub bucket: i64,
     pub network_type: String, // ipv4|ipv6
     pub count: i64,
 }
 
-pub fn reachable_by_network(conn: &Connection, from: i64, to: i64, network: &str) -> Result<Vec<ReachableByNetworkRow>> {
+pub fn reachable_by_network(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    network: &str,
+) -> Result<Vec<ReachableByNetworkRow>> {
     let mut stmt = conn.prepare(
         "SELECT
            (p.ts / 3600) * 3600 AS bucket,
@@ -125,7 +100,12 @@ pub struct UniqueReachablePoint {
     pub count: i64,
 }
 
-pub fn unique_reachable(conn: &Connection, from: i64, to: i64, network: &str) -> Result<Vec<UniqueReachablePoint>> {
+pub fn unique_reachable(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    network: &str,
+) -> Result<Vec<UniqueReachablePoint>> {
     let mut stmt = conn.prepare(
         "SELECT (p.ts / 86400) * 86400 AS bucket, count(DISTINCT p.address)
          FROM probes p JOIN seeds s ON s.id = p.seed_id
@@ -150,7 +130,13 @@ pub struct UserAgentRow {
     pub count: i64,
 }
 
-pub fn top_user_agents(conn: &Connection, from: i64, to: i64, limit: i64, network: &str) -> Result<Vec<UserAgentRow>> {
+pub fn top_user_agents(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    limit: i64,
+    network: &str,
+) -> Result<Vec<UserAgentRow>> {
     let mut stmt = conn.prepare(
         "SELECT p.user_agent, count(*) AS n
          FROM probes p JOIN seeds s ON s.id = p.seed_id
@@ -196,7 +182,11 @@ pub struct FixedSeedDecayRow {
 
 /// Per-release snapshot of fixed-seed reachability, using the most recent
 /// probe per (network, address) within `lookback_secs`.
-pub fn fixed_seed_decay(conn: &Connection, network: &str, lookback_secs: i64) -> Result<Vec<FixedSeedDecayRow>> {
+pub fn fixed_seed_decay(
+    conn: &Connection,
+    network: &str,
+    lookback_secs: i64,
+) -> Result<Vec<FixedSeedDecayRow>> {
     // For each (network, address), grab the latest probe in the lookback window.
     // Then for each (tag, network) count totals and how many of *its* addresses
     // had a successful latest probe.
@@ -225,8 +215,12 @@ pub fn fixed_seed_decay(conn: &Connection, network: &str, lookback_secs: i64) ->
     let rows = stmt
         .query_map(params![network, lookback_secs], |r| {
             Ok(FixedSeedDecayRow {
-                tag: r.get(0)?, network: r.get(1)?, released_at: r.get(2)?,
-                total: r.get(3)?, reachable_recent: r.get(4)?, probed_recent: r.get(5)?,
+                tag: r.get(0)?,
+                network: r.get(1)?,
+                released_at: r.get(2)?,
+                total: r.get(3)?,
+                reachable_recent: r.get(4)?,
+                probed_recent: r.get(5)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -246,36 +240,66 @@ pub fn alerts(conn: &Connection) -> Result<Vec<AlertRow>> {
          ORDER BY s.hostname",
     )?;
     let rows: Vec<(i64, String, String, Option<String>, i64, i64, i64)> = stmt
-        .query_map([], |r| Ok((
-            r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
-            r.get(4)?, r.get(5)?, r.get(6)?,
-        )))?
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+            ))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
 
     let now = chrono::Utc::now().timestamp();
     let mut out = Vec::new();
     for (seed_id, hostname, network, operator, reachable, unreachable, last_round) in rows {
         let total = reachable + unreachable;
-        let rate = if total > 0 { reachable as f64 / total as f64 } else { 0.0 };
-        let stale_secs = if last_round > 0 { now - last_round } else { i64::MAX };
+        let rate = if total > 0 {
+            reachable as f64 / total as f64
+        } else {
+            0.0
+        };
+        let stale_secs = if last_round > 0 {
+            now - last_round
+        } else {
+            i64::MAX
+        };
 
         let alert = if total >= 5 && rate < 0.10 {
-            Some(("critical", format!("dead — {}/{} reachable in 24h", reachable, total)))
+            Some((
+                "critical",
+                format!("dead — {}/{} reachable in 24h", reachable, total),
+            ))
         } else if last_round == 0 {
             Some(("warning", "no data in last 24h".to_string()))
         } else if stale_secs > 7200 {
-            Some(("warning", format!("stale — last round {}h ago", stale_secs / 3600)))
+            Some((
+                "warning",
+                format!("stale — last round {}h ago", stale_secs / 3600),
+            ))
         } else if total >= 30 && rate < 0.50 {
-            Some(("warning", format!("degraded — {:.0}% success over 24h", rate * 100.0)))
+            Some((
+                "warning",
+                format!("degraded — {:.0}% success over 24h", rate * 100.0),
+            ))
         } else {
             None
         };
 
         if let Some((level, reason)) = alert {
             out.push(AlertRow {
-                seed_id, hostname, network, operator,
-                level: level.to_string(), reason,
-                reachable, unreachable, last_round,
+                seed_id,
+                hostname,
+                network,
+                operator,
+                level: level.to_string(),
+                reason,
+                reachable,
+                unreachable,
+                last_round,
             });
         }
     }
@@ -289,7 +313,12 @@ pub struct ClassShareRow {
     pub count: i64,
 }
 
-pub fn class_shares_range(conn: &Connection, from_day: i64, to_day: i64, network: &str) -> Result<Vec<ClassShareRow>> {
+pub fn class_shares_range(
+    conn: &Connection,
+    from_day: i64,
+    to_day: i64,
+    network: &str,
+) -> Result<Vec<ClassShareRow>> {
     let mut stmt = conn.prepare(
         "SELECT dc.seed_id, dc.class, count(*)
          FROM daily_classifications dc JOIN seeds s ON s.id = dc.seed_id
@@ -322,7 +351,12 @@ pub struct SeedOverlapPair {
     pub shared: i64,
 }
 
-pub fn seed_totals(conn: &Connection, from: i64, to: i64, network: &str) -> Result<Vec<SeedTotalRow>> {
+pub fn seed_totals(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    network: &str,
+) -> Result<Vec<SeedTotalRow>> {
     let mut stmt = conn.prepare(
         "SELECT p.seed_id, COUNT(DISTINCT p.address)
          FROM probes p JOIN seeds s ON s.id = p.seed_id
@@ -331,13 +365,21 @@ pub fn seed_totals(conn: &Connection, from: i64, to: i64, network: &str) -> Resu
     )?;
     let rows = stmt
         .query_map(params![from, to, network], |r| {
-            Ok(SeedTotalRow { seed_id: r.get(0)?, addresses: r.get(1)? })
+            Ok(SeedTotalRow {
+                seed_id: r.get(0)?,
+                addresses: r.get(1)?,
+            })
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 
-pub fn seed_overlap(conn: &Connection, from: i64, to: i64, network: &str) -> Result<Vec<SeedOverlapPair>> {
+pub fn seed_overlap(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    network: &str,
+) -> Result<Vec<SeedOverlapPair>> {
     let mut stmt = conn.prepare(
         "WITH per AS (
            SELECT DISTINCT p.seed_id, p.address
@@ -351,7 +393,11 @@ pub fn seed_overlap(conn: &Connection, from: i64, to: i64, network: &str) -> Res
     )?;
     let rows = stmt
         .query_map(params![from, to, network], |r| {
-            Ok(SeedOverlapPair { a: r.get(0)?, b: r.get(1)?, shared: r.get(2)? })
+            Ok(SeedOverlapPair {
+                a: r.get(0)?,
+                b: r.get(1)?,
+                shared: r.get(2)?,
+            })
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
@@ -364,7 +410,12 @@ pub struct VersionShareRow {
     pub count: i64,
 }
 
-pub fn version_share_by_seed(conn: &Connection, from: i64, to: i64, network: &str) -> Result<Vec<VersionShareRow>> {
+pub fn version_share_by_seed(
+    conn: &Connection,
+    from: i64,
+    to: i64,
+    network: &str,
+) -> Result<Vec<VersionShareRow>> {
     let mut stmt = conn.prepare(
         "SELECT p.seed_id, p.user_agent, count(*) AS n
          FROM probes p JOIN seeds s ON s.id = p.seed_id
@@ -373,16 +424,23 @@ pub fn version_share_by_seed(conn: &Connection, from: i64, to: i64, network: &st
          GROUP BY p.seed_id, p.user_agent",
     )?;
     let raw: Vec<(i64, String, i64)> = stmt
-        .query_map(params![from, to, network], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .query_map(params![from, to, network], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut agg: std::collections::HashMap<(i64, Option<i64>), i64> = std::collections::HashMap::new();
+    let mut agg: std::collections::HashMap<(i64, Option<i64>), i64> =
+        std::collections::HashMap::new();
     for (seed_id, ua, n) in raw {
         *agg.entry((seed_id, parse_satoshi_major(&ua))).or_insert(0) += n;
     }
     let mut rows: Vec<VersionShareRow> = agg
         .into_iter()
-        .map(|((seed_id, major), count)| VersionShareRow { seed_id, major, count })
+        .map(|((seed_id, major), count)| VersionShareRow {
+            seed_id,
+            major,
+            count,
+        })
         .collect();
     rows.sort_by_key(|r| (r.seed_id, r.major.unwrap_or(i64::MAX)));
     Ok(rows)

@@ -15,7 +15,10 @@ mod p2p;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "monitor=info,tower_http=info".into()))
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "monitor=info,tower_http=info".into()),
+        )
         .init();
 
     let cfg = config::Config::load().context("loading config")?;
@@ -41,7 +44,15 @@ async fn main() -> anyhow::Result<()> {
         let fcfg = cfg.collector.clone();
         tokio::spawn(async move {
             let interval = std::time::Duration::from_secs(6 * 3600);
-            if let Err(e) = fixed_seeds::run(fdb, interval, fcfg.user_agent.clone(), fcfg.probe_concurrency, fcfg.probe_timeout()).await {
+            if let Err(e) = fixed_seeds::run(
+                fdb,
+                interval,
+                fcfg.user_agent.clone(),
+                fcfg.probe_concurrency,
+                fcfg.probe_timeout(),
+            )
+            .await
+            {
                 tracing::error!(error = ?e, "fixed-seed runner exited");
             }
         });

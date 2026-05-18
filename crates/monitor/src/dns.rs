@@ -20,7 +20,10 @@ impl DnsClient {
         opts.timeout = Duration::from_secs(5);
         opts.attempts = 2;
         let resolver = TokioAsyncResolver::tokio(ResolverConfig::cloudflare(), opts);
-        Ok(Self { resolver, enable_ipv6 })
+        Ok(Self {
+            resolver,
+            enable_ipv6,
+        })
     }
 
     /// Run `n` queries against the seed (alternating A / AAAA when v6 is enabled,

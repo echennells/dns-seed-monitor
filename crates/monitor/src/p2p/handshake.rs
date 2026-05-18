@@ -86,7 +86,9 @@ pub async fn handshake(
     let mut their_version: Option<VersionMessage> = None;
     let deadline = Instant::now() + timeout;
     loop {
-        let remaining = deadline.checked_duration_since(Instant::now()).ok_or(ProbeError::ReadTimeout)?;
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .ok_or(ProbeError::ReadTimeout)?;
         let msg = time::timeout(remaining, read_message(&mut stream, magic))
             .await
             .map_err(|_| ProbeError::ReadTimeout)??;
@@ -132,10 +134,15 @@ fn build_version_message(addr: SocketAddr, user_agent: &str) -> VersionMessage {
     }
 }
 
-async fn write_message(stream: &mut TcpStream, magic: Magic, payload: NetworkMessage) -> Result<(), ProbeError> {
+async fn write_message(
+    stream: &mut TcpStream,
+    magic: Magic,
+    payload: NetworkMessage,
+) -> Result<(), ProbeError> {
     let raw = RawNetworkMessage::new(magic, payload);
     let mut buf = Vec::with_capacity(256);
-    raw.consensus_encode(&mut buf).map_err(|e| ProbeError::Decode(e.to_string()))?;
+    raw.consensus_encode(&mut buf)
+        .map_err(|e| ProbeError::Decode(e.to_string()))?;
     stream.write_all(&buf).await?;
     stream.flush().await?;
     Ok(())

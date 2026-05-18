@@ -28,19 +28,28 @@ impl Db {
                 std::fs::create_dir_all(parent).ok();
             }
         }
-        let mut conn = Connection::open(path).with_context(|| format!("open {}", path.display()))?;
+        let mut conn =
+            Connection::open(path).with_context(|| format!("open {}", path.display()))?;
         Self::apply_pragmas(&conn)?;
         let migrations = Migrations::new(MIGRATIONS_SQL.iter().map(|s| M::up(s)).collect());
-        migrations.to_latest(&mut conn).context("running migrations")?;
-        Ok(Self { conn: Mutex::new(conn) })
+        migrations
+            .to_latest(&mut conn)
+            .context("running migrations")?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     pub fn open_in_memory() -> Result<Self> {
         let mut conn = Connection::open_in_memory()?;
         Self::apply_pragmas(&conn)?;
         let migrations = Migrations::new(MIGRATIONS_SQL.iter().map(|s| M::up(s)).collect());
-        migrations.to_latest(&mut conn).context("running migrations")?;
-        Ok(Self { conn: Mutex::new(conn) })
+        migrations
+            .to_latest(&mut conn)
+            .context("running migrations")?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     fn apply_pragmas(conn: &Connection) -> Result<()> {

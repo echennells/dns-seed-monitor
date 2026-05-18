@@ -28,9 +28,18 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
     let prior: HashMap<i64, (String, String, i64)> = {
         let conn = db.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT seed_id, level, reason, opened_at FROM alert_state")?;
-        let rows = stmt.query_map([], |r| {
-            Ok((r.get::<_, i64>(0)?, (r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))
-        })?.collect::<Result<Vec<_>, _>>()?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    (
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                    ),
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
         rows.into_iter().collect()
     };
 
@@ -68,24 +77,52 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
     // Fetch hostnames for resolved alerts (since they're no longer in `current`).
     let resolved_meta: Vec<(i64, String, String, String, String, i64)> = if !resolved.is_empty() {
         let conn = db.conn.lock().unwrap();
-        let placeholders = std::iter::repeat("?").take(resolved.len()).collect::<Vec<_>>().join(",");
-        let sql = format!("SELECT id, hostname, network, COALESCE(operator,'') FROM seeds WHERE id IN ({})", placeholders);
+        let placeholders = std::iter::repeat("?")
+            .take(resolved.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT id, hostname, network, COALESCE(operator,'') FROM seeds WHERE id IN ({})",
+            placeholders
+        );
         let mut stmt = conn.prepare(&sql)?;
         let ids: Vec<i64> = resolved.iter().map(|(id, _, _)| *id).collect();
-        let id_params: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
+        let id_params: Vec<&dyn rusqlite::ToSql> =
+            ids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
         let mut hosts: HashMap<i64, (String, String, String)> = HashMap::new();
         let mut rows = stmt.query(id_params.as_slice())?;
         while let Some(r) = rows.next()? {
             let id: i64 = r.get(0)?;
             hosts.insert(id, (r.get(1)?, r.get(2)?, r.get(3)?));
         }
-        resolved.iter().filter_map(|(sid, level, opened_at)| {
-            hosts.get(sid).map(|(h, n, o)| (*sid, h.clone(), n.clone(), o.clone(), level.clone(), *opened_at))
-        }).collect()
-    } else { Vec::new() };
+        resolved
+            .iter()
+            .filter_map(|(sid, level, opened_at)| {
+                hosts.get(sid).map(|(h, n, o)| {
+                    (
+                        *sid,
+                        h.clone(),
+                        n.clone(),
+                        o.clone(),
+                        level.clone(),
+                        *opened_at,
+                    )
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     for r in &resolved_meta {
-        events.push(Event::Resolved(r.0, r.1.clone(), r.2.clone(), r.3.clone(), r.4.clone(), r.5));
+        events.push(Event::Resolved(
+            r.0,
+            r.1.clone(),
+            r.2.clone(),
+            r.3.clone(),
+            r.4.clone(),
+            r.5,
+        ));
     }
 
     // 4. Persist new state (upserts + delete-resolved + history) atomically.
@@ -110,8 +147,12 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
             let (sid, ev, level, reason): (i64, &str, Option<&str>, Option<&str>) = match e {
                 Event::Opened(a) => (a.seed_id, "opened", Some(&a.level), Some(&a.reason)),
                 Event::Escalated(a, _) => (a.seed_id, "escalated", Some(&a.level), Some(&a.reason)),
-                Event::Deescalated(a, _) => (a.seed_id, "deescalated", Some(&a.level), Some(&a.reason)),
-                Event::Resolved(sid, _, _, _, level, _) => (*sid, "resolved", Some(level.as_str()), None),
+                Event::Deescalated(a, _) => {
+                    (a.seed_id, "deescalated", Some(&a.level), Some(&a.reason))
+                }
+                Event::Resolved(sid, _, _, _, level, _) => {
+                    (*sid, "resolved", Some(level.as_str()), None)
+                }
             };
             tx.execute(
                 "INSERT INTO alert_history (ts, seed_id, event, level, reason)
@@ -126,8 +167,12 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
     if !cfg.enabled {
         return Ok(());
     }
-    let Some(url) = cfg.webhook_url.as_deref() else { return Ok(()); };
-    if url.is_empty() { return Ok(()); }
+    let Some(url) = cfg.webhook_url.as_deref() else {
+        return Ok(());
+    };
+    if url.is_empty() {
+        return Ok(());
+    }
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -180,10 +225,21 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
     }
 
     if !events.is_empty() {
-        tracing::info!(opened = events.iter().filter(|e| matches!(e, Event::Opened(_))).count(),
-                       resolved = events.iter().filter(|e| matches!(e, Event::Resolved(..))).count(),
-                       escalated = events.iter().filter(|e| matches!(e, Event::Escalated(..))).count(),
-                       "alert events dispatched");
+        tracing::info!(
+            opened = events
+                .iter()
+                .filter(|e| matches!(e, Event::Opened(_)))
+                .count(),
+            resolved = events
+                .iter()
+                .filter(|e| matches!(e, Event::Resolved(..)))
+                .count(),
+            escalated = events
+                .iter()
+                .filter(|e| matches!(e, Event::Escalated(..)))
+                .count(),
+            "alert events dispatched"
+        );
     }
 
     Ok(())

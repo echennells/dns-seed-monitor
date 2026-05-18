@@ -31,24 +31,30 @@ use seeds::Network;
 /// Dates are approximate (release-day UTC midnight) and only used to compute
 /// "age since release" on the dashboard.
 const RELEASES: &[(&str, i64)] = &[
-    ("v26.0",  1701907200),  // 2023-12-07
-    ("v26.1",  1712016000),  // 2024-04-02
-    ("v27.0",  1713312000),  // 2024-04-17
-    ("v27.1",  1721174400),  // 2024-07-17
-    ("v28.0",  1727913600),  // 2024-10-03
-    ("v28.1",  1733184000),  // 2024-12-03
-    ("v29.0",  1744156800),  // 2025-04-09 (approx)
-    ("v30.0",  1759708800),  // 2025-10-06 (approx)
-    ("v31.0",  1775606400),  // 2026-04-09 (approx)
+    ("v26.0", 1701907200), // 2023-12-07
+    ("v26.1", 1712016000), // 2024-04-02
+    ("v27.0", 1713312000), // 2024-04-17
+    ("v27.1", 1721174400), // 2024-07-17
+    ("v28.0", 1727913600), // 2024-10-03
+    ("v28.1", 1733184000), // 2024-12-03
+    ("v29.0", 1744156800), // 2025-04-09 (approx)
+    ("v30.0", 1759708800), // 2025-10-06 (approx)
+    ("v31.0", 1775606400), // 2026-04-09 (approx)
 ];
 
 const NETWORKS: &[(&str, &str)] = &[
     ("mainnet", "nodes_main.txt"),
     ("testnet", "nodes_test.txt"),
-    ("signet",  "nodes_signet.txt"),
+    ("signet", "nodes_signet.txt"),
 ];
 
-pub async fn run(db: Arc<Db>, probe_interval: Duration, ua: String, probe_concurrency: usize, probe_timeout: Duration) -> Result<()> {
+pub async fn run(
+    db: Arc<Db>,
+    probe_interval: Duration,
+    ua: String,
+    probe_concurrency: usize,
+    probe_timeout: Duration,
+) -> Result<()> {
     // Ingest once at startup (idempotent), then loop probing.
     if let Err(e) = ingest_all(&db).await {
         tracing::error!(error = ?e, "fixed-seed ingestion failed at startup");
@@ -76,7 +82,8 @@ async fn ingest_all(db: &Db) -> Result<()> {
     let already: HashSet<(String, String)> = {
         let conn = db.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT tag, network FROM fixed_seed_releases")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
             .collect::<Result<Vec<_>, _>>()?;
         rows.into_iter().collect()
     };
@@ -89,11 +96,17 @@ async fn ingest_all(db: &Db) -> Result<()> {
             if already.contains(&(tag.to_string(), network.to_string())) {
                 continue;
             }
-            let url = format!("https://raw.githubusercontent.com/bitcoin/bitcoin/{}/contrib/seeds/{}", tag, file);
+            let url = format!(
+                "https://raw.githubusercontent.com/bitcoin/bitcoin/{}/contrib/seeds/{}",
+                tag, file
+            );
             tracing::info!(tag, network, "ingesting fixed seeds");
             let resp = match client.get(&url).send().await {
                 Ok(r) => r,
-                Err(e) => { tracing::warn!(tag, network, error = ?e, "fetch failed"); continue; }
+                Err(e) => {
+                    tracing::warn!(tag, network, error = ?e, "fetch failed");
+                    continue;
+                }
             };
             if !resp.status().is_success() {
                 tracing::warn!(tag, network, status = ?resp.status(), "non-2xx response");
@@ -135,24 +148,38 @@ fn parse_nodes_file(text: &str, _network: &str) -> Vec<(String, u16)> {
     let mut out = Vec::new();
     for raw in text.lines() {
         let line = raw.split('#').next().unwrap_or("").trim();
-        if line.is_empty() { continue; }
-        if line.contains(".onion") || line.contains(".b32.i2p") { continue; }
+        if line.is_empty() {
+            continue;
+        }
+        if line.contains(".onion") || line.contains(".b32.i2p") {
+            continue;
+        }
 
         // Split host:port. IPv6 addresses come bracketed: [::1]:8333
         let (host, port) = if let Some(rest) = line.strip_prefix('[') {
-            let Some((h, tail)) = rest.split_once(']') else { continue; };
-            let Some(p) = tail.strip_prefix(':') else { continue; };
+            let Some((h, tail)) = rest.split_once(']') else {
+                continue;
+            };
+            let Some(p) = tail.strip_prefix(':') else {
+                continue;
+            };
             (h.to_string(), p)
         } else {
-            let Some((h, p)) = line.rsplit_once(':') else { continue; };
+            let Some((h, p)) = line.rsplit_once(':') else {
+                continue;
+            };
             (h.to_string(), p)
         };
-        let Ok(port) = port.parse::<u16>() else { continue; };
+        let Ok(port) = port.parse::<u16>() else {
+            continue;
+        };
 
         // cjdns range filter: anything in fc00::/8.
         if let Ok(ip) = host.parse::<IpAddr>() {
             if let IpAddr::V6(v6) = ip {
-                if v6.octets()[0] == 0xfc { continue; }
+                if v6.octets()[0] == 0xfc {
+                    continue;
+                }
             }
             out.push((ip.to_string(), port));
         }
@@ -164,10 +191,15 @@ async fn probe_round(db: &Db, ua: &str, concurrency: usize, timeout: Duration) -
     // Distinct (network, address, port) across all releases.
     let targets: Vec<(String, String, u16)> = {
         let conn = db.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT DISTINCT network, address, port FROM fixed_seeds"
-        )?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)? as u16)))?
+        let mut stmt = conn.prepare("SELECT DISTINCT network, address, port FROM fixed_seeds")?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)? as u16,
+                ))
+            })?
             .collect::<Result<Vec<_>, _>>()?;
         rows
     };
@@ -183,10 +215,12 @@ async fn probe_round(db: &Db, ua: &str, concurrency: usize, timeout: Duration) -
         let network = match network_str.as_str() {
             "mainnet" => Network::Mainnet,
             "testnet" => Network::Testnet,
-            "signet"  => Network::Signet,
+            "signet" => Network::Signet,
             _ => continue,
         };
-        let Ok(ip) = addr_s.parse::<IpAddr>() else { continue };
+        let Ok(ip) = addr_s.parse::<IpAddr>() else {
+            continue;
+        };
         let sock = SocketAddr::new(ip, *port);
         let magic = Magic::from_bytes(network.magic());
         let sem = sem.clone();
@@ -202,8 +236,12 @@ async fn probe_round(db: &Db, ua: &str, concurrency: usize, timeout: Duration) -
     }
 
     // Drain all probes first — don't hold the DB lock across awaits.
-    let mut results: Vec<(String, String, u16, std::result::Result<crate::p2p::handshake::PeerInfo, crate::p2p::handshake::ProbeError>)> =
-        Vec::with_capacity(targets.len());
+    let mut results: Vec<(
+        String,
+        String,
+        u16,
+        std::result::Result<crate::p2p::handshake::PeerInfo, crate::p2p::handshake::ProbeError>,
+    )> = Vec::with_capacity(targets.len());
     while let Some(tuple) = futures.next().await {
         results.push(tuple);
     }
@@ -237,6 +275,10 @@ async fn probe_round(db: &Db, ua: &str, concurrency: usize, timeout: Duration) -
         }
         tx.commit()?;
     }
-    tracing::info!(reachable = succ, unreachable = fail, "fixed-seed probe round complete");
+    tracing::info!(
+        reachable = succ,
+        unreachable = fail,
+        "fixed-seed probe round complete"
+    );
     Ok(())
 }

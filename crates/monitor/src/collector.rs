@@ -130,7 +130,8 @@ pub async fn run_round(db: &Db, dns: &DnsClient, cfg: &CollectorConfig) -> Resul
         });
     }
 
-    let mut probe_results: HashMap<(Network, IpAddr), Result<PeerInfo, ProbeError>> = HashMap::new();
+    let mut probe_results: HashMap<(Network, IpAddr), Result<PeerInfo, ProbeError>> =
+        HashMap::new();
     while let Some((key, res)) = futures.next().await {
         probe_results.insert(key, res);
     }
