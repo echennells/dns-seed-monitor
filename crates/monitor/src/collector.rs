@@ -32,6 +32,7 @@ pub async fn run(db: Arc<Db>, cfg: CollectorConfig, alert_cfg: AlertingConfig) -
     }
 }
 
+#[allow(dead_code)] // read via Debug formatting in tracing::info!
 #[derive(Debug, Default)]
 pub struct RoundSummary {
     pub seeds_queried: usize,

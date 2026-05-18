@@ -77,10 +77,7 @@ pub async fn evaluate_and_dispatch(db: Arc<Db>, cfg: AlertingConfig) -> Result<(
     // Fetch hostnames for resolved alerts (since they're no longer in `current`).
     let resolved_meta: Vec<(i64, String, String, String, String, i64)> = if !resolved.is_empty() {
         let conn = db.conn.lock().unwrap();
-        let placeholders = std::iter::repeat("?")
-            .take(resolved.len())
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = vec!["?"; resolved.len()].join(",");
         let sql = format!(
             "SELECT id, hostname, network, COALESCE(operator,'') FROM seeds WHERE id IN ({})",
             placeholders

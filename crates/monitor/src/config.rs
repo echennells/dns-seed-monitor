@@ -63,6 +63,7 @@ pub struct AlertingConfig {
 }
 
 impl Config {
+    #[allow(clippy::result_large_err)] // figment::Error is large; boxing this one call site isn't worth the churn
     pub fn load() -> Result<Self, figment::Error> {
         let path = std::env::var("MONITOR_CONFIG").unwrap_or_else(|_| "config.toml".into());
         Figment::new()

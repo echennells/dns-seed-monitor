@@ -227,6 +227,8 @@ pub fn fixed_seed_decay(
     Ok(rows)
 }
 
+type AlertScanRow = (i64, String, String, Option<String>, i64, i64, i64);
+
 pub fn alerts(conn: &Connection) -> Result<Vec<AlertRow>> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.hostname, s.network, s.operator,
@@ -239,7 +241,7 @@ pub fn alerts(conn: &Connection) -> Result<Vec<AlertRow>> {
          GROUP BY s.id
          ORDER BY s.hostname",
     )?;
-    let rows: Vec<(i64, String, String, Option<String>, i64, i64, i64)> = stmt
+    let rows: Vec<AlertScanRow> = stmt
         .query_map([], |r| {
             Ok((
                 r.get(0)?,
