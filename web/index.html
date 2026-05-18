@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bitcoin DNS Seed Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css" />
+  <link rel="stylesheet" href="/style.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('seed-monitor-theme');
+        if (t && t !== 'warm') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <aside class="sidebar">
+    <header class="masthead">
+      <h1>Bitcoin DNS Seed Monitor</h1>
+      <p class="sub">DCTRL YVR Labs</p>
+    </header>
+    <nav>
+      <a href="#alerts"      data-page="alerts">Alerts <span id="alerts-badge" class="badge"></span></a>
+      <a href="#seeds"       data-page="seeds">DNS seeds</a>
+      <a href="#reachable"   data-page="reachable">Reachable nodes</a>
+      <a href="#unique"      data-page="unique">Unique reachable</a>
+      <a href="#agents"      data-page="agents">User agents</a>
+      <a href="#versions"    data-page="versions">Version share</a>
+      <a href="#classes"     data-page="classes">Classification mix</a>
+      <a href="#overlap"     data-page="overlap">Seed overlap</a>
+      <a href="#fixed"       data-page="fixed">Fixed-seed decay</a>
+      <a href="#methodology" data-page="methodology">Methodology</a>
+    </nav>
+    <div class="range">
+      <label>Network</label>
+      <select id="network">
+        <option value="mainnet" selected>mainnet</option>
+        <option value="testnet">testnet</option>
+        <option value="signet">signet</option>
+      </select>
+    </div>
+    <div class="range">
+      <label>Range</label>
+      <select id="range">
+        <option value="604800">7 days</option>
+        <option value="2592000" selected>30 days</option>
+        <option value="7776000">90 days</option>
+        <option value="31536000">1 year</option>
+      </select>
+    </div>
+    <div class="themes" id="themes">
+      <span class="themes-label">Theme</span>
+      <button class="theme-chip" data-theme="warm"    style="--swatch:#15120d" title="Warm dark"></button>
+      <button class="theme-chip" data-theme="cool"    style="--swatch:#0d1117" title="Cool dark"></button>
+      <button class="theme-chip" data-theme="neutral" style="--swatch:#161616" title="Neutral dark"></button>
+    </div>
+    <p class="footer">
+      Modeled on <a href="https://21.ninja/dns-seeds/">21.ninja</a>.<br/>
+      <a href="https://github.com/0xB10C/project-ideas/issues/14">Source idea</a>.
+    </p>
+  </aside>
+  <main id="main"></main>
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

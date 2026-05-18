@@ -1,0 +1,20 @@
+[server]
+bind = "0.0.0.0:8080"
+
+[db]
+path = "data/monitor.db"
+
+[collector]
+enabled             = true
+round_interval_secs = 3600
+queries_per_seed    = 20
+query_spread_secs   = 300
+probe_concurrency   = 256
+probe_timeout_secs  = 10
+user_agent          = "/DCTRL-YVR-seed-monitor:0.1.0/"
+enable_ipv6         = false
+
+[alerting]
+enabled     = false
+# webhook_url = "https://ntfy.sh/your-topic"
+# auth_header = "Authorization: Bearer your-token"

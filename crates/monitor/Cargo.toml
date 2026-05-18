@@ -1,0 +1,48 @@
+[package]
+name = "monitor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+default-run = "monitor"
+
+[[bin]]
+name = "monitor"
+path = "src/main.rs"
+
+[dependencies]
+seeds = { path = "../seeds" }
+
+anyhow             = { workspace = true }
+thiserror          = { workspace = true }
+tokio              = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+rusqlite           = { workspace = true }
+rusqlite_migration = { workspace = true }
+chrono             = { workspace = true }
+
+# config
+figment = { version = "0.10", features = ["toml", "env"] }
+
+# dns
+hickory-resolver = "0.24"
+
+# p2p
+bitcoin = { version = "0.31", default-features = false, features = ["std"] }
+
+# http
+axum         = "0.7"
+tower        = "0.4"
+tower-http   = { version = "0.5", features = ["fs", "trace", "cors"] }
+
+# concurrency
+futures = "0.3"
+rand    = "0.8"
+
+# outbound http (alerting webhooks)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "http2"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,9 @@
+target
+data
+*.db
+*.db-wal
+*.db-shm
+.git
+.github
+.gitignore
+node_modules

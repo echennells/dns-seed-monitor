@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/monitor", "crates/seeds"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+repository = "https://github.com/echennells/dns-seed-monitor"
+
+[workspace.dependencies]
+anyhow      = "1"
+thiserror   = "1"
+tokio       = { version = "1", features = ["full"] }
+tracing     = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+rusqlite    = { version = "0.31", features = ["bundled", "chrono"] }
+rusqlite_migration = "1.2"
+chrono      = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }

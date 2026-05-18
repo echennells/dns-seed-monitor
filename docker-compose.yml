@@ -1,0 +1,16 @@
+services:
+  monitor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: dctrl-yvr/dns-seed-monitor:0.1.0
+    container_name: dns-seed-monitor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      RUST_LOG: monitor=info,tower_http=info
+      # Override config via env if needed:
+      # MONITOR_COLLECTOR__ROUND_INTERVAL_SECS: "3600"
