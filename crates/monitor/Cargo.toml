@@ -27,7 +27,7 @@ chrono             = { workspace = true }
 figment = { version = "0.10", features = ["toml", "env"] }
 
 # dns
-hickory-resolver = "0.24"
+hickory-resolver = "0.26"
 
 # p2p
 bitcoin = { version = "0.31", default-features = false, features = ["std"] }
